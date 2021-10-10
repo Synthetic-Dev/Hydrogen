@@ -1,6 +1,3 @@
-# Hydrogen
- Convert UI instances to Fusion code!
-
 <p align="center" width="100%">
   <img height="128em" src="/resources/README-logo.png" alt="Hydrogen">
 </p>
