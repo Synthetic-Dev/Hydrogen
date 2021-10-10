@@ -1,5 +1,5 @@
 <p align="center" width="100%">
-  <img height="128em" src="/resources/README-logo.png" alt="Hydrogen">
+  <img height="128em" src="./resources/README-logo.png" alt="Hydrogen">
 </p>
 <p align="center">
 Hydrogen is a UI instance to code conversion plugin just like <a href="https://devforum.roblox.com/t/roactify-plugin/473076">Roactify</a> but is built for converting to <a href="https://github.com/Elttob/Fusion">Fusion</a> code instead.
