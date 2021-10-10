@@ -10,9 +10,9 @@ but is built for converting UI to <a href="https://github.com/Elttob/Fusion">Fus
 Hydrogen will convert any UI that you select into a minimal Fusion tree.<br>
 You can then edit this code to your liking in order to add State and Animation to your UI.
 </p>
-<h1 align="center">
+<h3 align="center">
 <a href="">Install Hydrogen →</a>
-</h1>
+</h3>
 <hr>
 <h2>The End Goal:</h2>
 <p align="left">
