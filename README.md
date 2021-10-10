@@ -11,7 +11,7 @@ Hydrogen will convert any UI that you select into a minimal Fusion tree.<br>
 You can then edit this code to your liking in order to add State and Animation to your UI.
 </p>
 <h3 align="center">
-<a href="">Install Hydrogen →</a>
+<a href="https://www.roblox.com/library/7705725487/Hydrogen">Install Hydrogen →</a>
 </h3>
 <hr>
 <h2>The End Goal:</h2>
