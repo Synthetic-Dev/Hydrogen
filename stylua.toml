@@ -1,0 +1,10 @@
+column_width = 80
+line_endings = "Unix"
+indent_type = "Tabs"
+indent_width = 4
+quote_style = "ForceDouble"
+no_call_parentheses = false
+table_sep = "SemiColon"
+extra_sep_at_table_end = true
+extra_spaces_inside_table = true
+extra_space_in_empty_table = true
