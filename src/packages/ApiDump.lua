@@ -1,4 +1,9 @@
-local HttpService = game:GetService("HttpService")
+--[[
+    A modified version of Elttob's ApiDump module.
+]]
+
+local packages = script.Parent
+local FetchJSON = require(packages.FetchJSON)
 
 local URL =
 	"https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/API-Dump.json"
@@ -23,19 +28,9 @@ function ApiDump:FetchApiDump(plugin)
 		end
 	end
 
-	local success, result = pcall(function()
-		return HttpService:GetAsync(URL)
-	end)
+	local success, result, err = FetchJSON(URL)
 	if not success then
-		local httpDisabled = string.find(result, "not enabled")
-		return false, httpDisabled and "HTTPDisabled" or "HTTPError"
-	end
-
-	success, result = pcall(function()
-		return HttpService:JSONDecode(result)
-	end)
-	if not success then
-		return false, "JSONDecodeError"
+		return false, result, err
 	end
 
 	self.Cached = result
@@ -112,6 +107,11 @@ function ApiDump:GetMembers(className)
 
 	membersCache[className] = members
 	return members
+end
+
+function ApiDump:IsService(className)
+	local entry = self:GetClassEntry(className)
+	return table.find(entry.Tags or { }, "Service")
 end
 
 local ignoreTags = {
