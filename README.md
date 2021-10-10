@@ -5,7 +5,7 @@
 Hydrogen is a UI instance to code conversion plugin just like <a href="https://devforum.roblox.com/t/roactify-plugin/473076">Roactify</a><br>
 but is built for converting UI to <a href="https://github.com/Elttob/Fusion">Fusion</a> code instead.
 </p>
-<h3>How does it work?</h3>
+<h3 align="center">How does it work?</h3>
 <p align="center">
 Hydrogen will convert any UI that you select into a minimal Fusion tree.<br>
 You can then edit this code to your liking in order to add State and Animation to your UI.
@@ -13,6 +13,7 @@ You can then edit this code to your liking in order to add State and Animation t
 <h4 align="center">
 <a href="">Download Hydrogen →</a>
 </h4>
+<hr>
 <h3>Disclaimer:</h3>
 <p align="left">
 This plugin is currently only a <b>prototype</b> and the produced code may not be optimal.<br>
