@@ -16,10 +16,11 @@ You can then edit this code to your liking in order to add State and Animation t
 <hr>
 <h2>The End Goal:</h2>
 <p align="left">
-The end goal of Hydrogen is to be able to identify components, remove duplicate code and allow users to animate their UI through an intuative editor in order to make Fusion development easier for those who don't wish to go through the process of creating the whole UI via code.
+The end goal of Hydrogen is to be able to identify components, remove duplicate code and allow users to animate their UI using a simple and intuative editor.
 </p>
 <h3>Disclaimer:</h3>
 <p align="left">
-This plugin is currently only a <b>PROTOTYPE</b> and the produced code may not be optimal.<br><br>
+This plugin is currently only a <b>PROTOTYPE</b> and the produced code may not be optimal.<br>
+All promised features will be coming at a later date.<br><br>
 In order to have the full benefits of using Fusion it is recommended that you write your UI from scratch rather then using Hydrogen!
 </p>
