@@ -4,3 +4,6 @@
 # Roblox Studio lock files
 /*.rbxlx.lock
 /*.rbxl.lock
+
+# Roblox model file
+*.rbxmx
