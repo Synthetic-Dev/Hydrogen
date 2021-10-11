@@ -13,6 +13,9 @@ You can then edit this code to your liking in order to add State and Animation t
 <h3 align="center">
 <a href="https://www.roblox.com/library/7705725487/Hydrogen">Install Hydrogen →</a>
 </h3>
+<p align="center">
+<a href="https://devforum.roblox.com/t/hydrogen-plugin/1504175">View on DevForum</a>
+</p>
 <hr>
 <h2>The End Goal:</h2>
 <p align="left">
