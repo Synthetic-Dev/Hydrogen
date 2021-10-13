@@ -30,6 +30,8 @@ function Updates:GetLatestVersion()
 		)
 	end
 
+	self.CachedLatestVersion = result
+
 	return result
 end
 
@@ -38,7 +40,7 @@ function Updates:GetCachedLatestVersion()
 end
 
 function Updates:GetVersionNumber(version)
-	return version.major * 10000 + version.minor * 100 + version.patch
+	return version.major * 10000 + version.minor * 100 + version.patch * 2
 end
 
 function Updates:IsUpdateAvailable()
