@@ -14,6 +14,18 @@ local function RemoveTrailingNewLine(str)
 	return str
 end
 
+local function AddIndents(str, indent)
+	if indent == 0 then
+		return str
+	end
+
+	local lines = string.split(str, "\n")
+	for i, line in pairs(lines) do
+		lines[i] = string.rep("\t", indent) .. line
+	end
+	return table.concat(lines, "\n")
+end
+
 local FileHandler = { }
 FileHandler.__index = FileHandler
 
@@ -65,7 +77,7 @@ function FileHandler:WriteLine(lineNumber, content, indent)
 	contentBefore = AddTrailingNewLine(contentBefore)
 
 	self.source = contentBefore
-		.. (string.rep("\t", indent) .. content .. "\n")
+		.. (AddIndents(content, indent) .. "\n")
 		.. contentAfter
 end
 
@@ -76,7 +88,7 @@ function FileHandler:InsertLine(lineNumber, content, indent)
 	local contentAt, contentBefore, contentAfter = self:GetLine(lineNumber)
 
 	self.source = contentBefore
-		.. (string.rep("\t", indent) .. content .. "\n")
+		.. (AddIndents(content, indent) .. "\n")
 		.. contentAt
 		.. contentAfter
 end
@@ -107,7 +119,7 @@ function FileHandler:AppendLine(content, indent)
 		source = AddTrailingNewLine(source)
 	end
 
-	source ..= string.rep("\t", indent) .. content .. "\n"
+	source ..= AddIndents(content, indent) .. "\n"
 	self.source = source
 end
 

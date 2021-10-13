@@ -4,6 +4,9 @@ local packages = script.Parent
 local ApiDump = require(packages.ApiDump)
 local IsGuiObject = require(packages.IsGuiObject)
 
+local utils = packages.Parent.utils
+local TableUtil = require(utils.TableUtil)
+
 local Constructor = require(script.Constructor)
 local ObjectReferences = require(script.ObjectReferences)
 
@@ -15,7 +18,12 @@ local function trimNumber(num)
 	return math.round(num * 1e4) / 1e4
 end
 
-function ScriptConstructor:ValueToString(value, instanceHandler)
+function ScriptConstructor:ValueToString(value, formatSettings, instanceHandler)
+	formatSettings = TableUtil.Assign({
+		tableSeparator = ",";
+		extraSeparator = false;
+	}, formatSettings or { })
+
 	local typeOf = typeof(value)
 	if type(value) == "userdata" and typeOf ~= "EnumItem" then
 		if typeOf == "UDim2" then
@@ -65,8 +73,43 @@ function ScriptConstructor:ValueToString(value, instanceHandler)
 			else
 				value = ObjectReferences.new(value):GetPath(game, value)
 			end
+		elseif
+			table.find(
+				{ "NumberSequenceKeypoint"; "ColorSequenceKeypoint"; },
+				typeOf
+			)
+		then
+			local includeEnvelope = typeOf == "NumberSequenceKeypoint"
+
+			value = string.format(
+				"%s.new(%s, %s" .. (includeEnvelope and ", %s" or "") .. ")",
+				typeOf,
+				trimNumber(value.Time),
+				self:ValueToString(value.Value, formatSettings, instanceHandler),
+				includeEnvelope and trimNumber(value.Envelope)
+			)
+		elseif table.find({ "NumberSequence"; "ColorSequence"; }, typeOf) then
+			local tempValue = "%s.new({\n"
+			local keypoints = value.Keypoints
+
+			for index, keypoint in ipairs(keypoints) do
+				tempValue ..= "\t" .. self:ValueToString(
+					keypoint,
+					formatSettings,
+					instanceHandler
+				) .. ((index == #keypoints and not formatSettings.extraSeparator) and "" or formatSettings.tableSeparator) .. "\n"
+			end
+
+			value = string.format(tempValue, typeOf) .. "})"
 		else
-			local values = string.split(tostring(value), ", ")
+			local separator = ", "
+
+			-- Have to include this edge case due to `tostring` formatting inconsistencies
+			if table.find({ "NumberRange"; }, typeOf) then
+				separator = " "
+			end
+
+			local values = string.split(tostring(value), separator)
 
 			for index, val in pairs(values) do
 				if tonumber(val) then
@@ -217,7 +260,7 @@ function ScriptConstructor:ConstructSource(
 		for index, property in pairs(propertiesToChange) do
 			local value = object[property]
 
-			value = self:ValueToString(value, function(val)
+			value = self:ValueToString(value, formatSettings, function(val)
 				if property == "Parent" and val == StarterGui then
 					constructor:AddService(game:GetService("Players"))
 
