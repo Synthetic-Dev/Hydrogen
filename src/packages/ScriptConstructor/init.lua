@@ -4,133 +4,14 @@ local packages = script.Parent
 local ApiDump = require(packages.ApiDump)
 local IsGuiObject = require(packages.IsGuiObject)
 
-local utils = packages.Parent.utils
-local TableUtil = require(utils.TableUtil)
-
 local Constructor = require(script.Constructor)
+local ValueToString = require(script.ValueToString)
 local ObjectReferences = require(script.ObjectReferences)
 
 local ScriptConstructor = { }
 
 ScriptConstructor.Constructor = Constructor
-
-local function trimNumber(num)
-	return math.round(num * 1e4) / 1e4
-end
-
-function ScriptConstructor:ValueToString(value, formatSettings, instanceHandler)
-	formatSettings = TableUtil.Assign({
-		tableSeparator = ",";
-		extraSeparator = false;
-	}, formatSettings or { })
-
-	local typeOf = typeof(value)
-	if type(value) == "userdata" and typeOf ~= "EnumItem" then
-		if typeOf == "UDim2" then
-			local xOffset = trimNumber(value.X.Offset)
-			local xScale = trimNumber(value.X.Scale)
-			local yOffset = trimNumber(value.Y.Offset)
-			local yScale = trimNumber(value.Y.Scale)
-
-			if
-				(xOffset == 0 and yOffset == 0)
-				and (math.abs(xScale) > 0 or math.abs(yScale) > 0)
-			then
-				value = string.format("UDim2.fromScale(%s, %s)", xScale, yScale)
-			elseif
-				(xScale == 0 and yScale == 0)
-				and (math.abs(xOffset) > 0 or math.abs(xOffset) > 0)
-			then
-				value = string.format(
-					"UDim2.fromOffset(%s, %s)",
-					xOffset,
-					yOffset
-				)
-			else
-				value = string.format(
-					"UDim2.new(%s, %s, %s, %s)",
-					xScale,
-					xOffset,
-					yScale,
-					yOffset
-				)
-			end
-		elseif typeOf == "Color3" then
-			local r = math.round(value.R * 255)
-			local g = math.round(value.G * 255)
-			local b = math.round(value.B * 255)
-
-			if r + g + b == 0 then
-				value = "Color3.new()"
-			elseif r + g + b == 255 * 3 then
-				value = "Color3.new(1, 1, 1)"
-			else
-				value = string.format("Color3.fromRGB(%s, %s, %s)", r, g, b)
-			end
-		elseif typeOf == "Instance" then
-			if instanceHandler then
-				value = instanceHandler(value)
-			else
-				value = ObjectReferences.new(value):GetPath(game, value)
-			end
-		elseif
-			table.find(
-				{ "NumberSequenceKeypoint"; "ColorSequenceKeypoint"; },
-				typeOf
-			)
-		then
-			local includeEnvelope = typeOf == "NumberSequenceKeypoint"
-
-			value = string.format(
-				"%s.new(%s, %s" .. (includeEnvelope and ", %s" or "") .. ")",
-				typeOf,
-				trimNumber(value.Time),
-				self:ValueToString(value.Value, formatSettings, instanceHandler),
-				includeEnvelope and trimNumber(value.Envelope)
-			)
-		elseif table.find({ "NumberSequence"; "ColorSequence"; }, typeOf) then
-			local tempValue = "%s.new({\n"
-			local keypoints = value.Keypoints
-
-			for index, keypoint in ipairs(keypoints) do
-				tempValue ..= "\t" .. self:ValueToString(
-					keypoint,
-					formatSettings,
-					instanceHandler
-				) .. ((index == #keypoints and not formatSettings.extraSeparator) and "" or formatSettings.tableSeparator) .. "\n"
-			end
-
-			value = string.format(tempValue, typeOf) .. "})"
-		else
-			local separator = ", "
-
-			-- Have to include this edge case due to `tostring` formatting inconsistencies
-			if table.find({ "NumberRange"; }, typeOf) then
-				separator = " "
-			end
-
-			local values = string.split(tostring(value), separator)
-
-			for index, val in pairs(values) do
-				if tonumber(val) then
-					values[index] = tostring(trimNumber(tonumber(val)))
-				end
-			end
-
-			value = string.format(
-				"%s.new(%s)",
-				typeOf,
-				table.concat(values, ", ")
-			)
-		end
-	elseif typeOf == "string" then
-		value = string.format("%q", value)
-	elseif typeOf == "number" then
-		value = trimNumber(value)
-	end
-
-	return tostring(value)
-end
+ScriptConstructor.ValueToString = ValueToString
 
 local ignoreProperty = { }
 do
@@ -176,34 +57,14 @@ function ScriptConstructor:ConstructSource(
 		)
 	end
 
-	local function writeLinesForObject(object, indent, siblings, isLast)
-		siblings = siblings or { }
-
+	local function writeLinesForObject(object, indent, isLast)
 		local isTopOfTree = object == guiObject
 		local className = object.ClassName
 
-		local startLine, endLine
-		if isTopOfTree then
-			startLine = constructor:Write(
-				string.format("New %q {", className),
-				indent
-			)
-		else
-			local name = object.Name
-
-			local counter = 1
-			while table.find(siblings, name) do
-				name = string.format("%s_%d", object.Name, counter)
-				counter += 1
-			end
-
-			table.insert(siblings, name)
-
-			startLine = constructor:Write(
-				string.format("%s = New %q {", name, className),
-				indent
-			)
-		end
+		local startLine = constructor:Write(
+			string.format("New %q {", className),
+			indent
+		)
 
 		indent += 1
 
@@ -219,9 +80,6 @@ function ScriptConstructor:ConstructSource(
 
 		local propertiesToChange = { }
 		for _, property in pairs(properties) do
-			if property == "Name" then
-				continue
-			end
 			if
 				(
 					not isTopOfTree
@@ -260,7 +118,7 @@ function ScriptConstructor:ConstructSource(
 		for index, property in pairs(propertiesToChange) do
 			local value = object[property]
 
-			value = self:ValueToString(value, formatSettings, function(val)
+			value = ValueToString(value, formatSettings, function(val)
 				if property == "Parent" and val == StarterGui then
 					constructor:AddService(game:GetService("Players"))
 
@@ -308,15 +166,8 @@ function ScriptConstructor:ConstructSource(
 			constructor:Write("[Children] = {", indent)
 			indent += 1
 
-			local childrenSiblings = { }
-
 			for index, child in pairs(validChildren) do
-				writeLinesForObject(
-					child,
-					indent,
-					childrenSiblings,
-					index == #validChildren
-				)
+				writeLinesForObject(child, indent, index == #validChildren)
 			end
 
 			if isComponent then
@@ -339,7 +190,7 @@ function ScriptConstructor:ConstructSource(
 
 		indent -= 1
 
-		endLine = constructor:Write(
+		local endLine = constructor:Write(
 			"}"
 				.. (
 					(
