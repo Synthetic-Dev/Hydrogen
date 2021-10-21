@@ -44,7 +44,7 @@ function FileHandler:GetLines()
 end
 
 function FileHandler:GetLineCount()
-	return #self:GetLines()
+	return #string.split(self.source, LINE_PATTERN)
 end
 
 function FileHandler:GetLastLineNumber()
