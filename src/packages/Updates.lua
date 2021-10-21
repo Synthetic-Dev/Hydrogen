@@ -1,5 +1,3 @@
-local RunService = game:GetService("RunService")
-
 local packages = script.Parent
 local FetchJSON = require(packages.FetchJSON)
 
@@ -15,10 +13,6 @@ function Updates:GetVersion()
 end
 
 function Updates:GetLatestVersion()
-	if RunService:IsClient() then
-		return
-	end
-
 	local success, result, err = FetchJSON(URL)
 	if not success then
 		error(
@@ -40,7 +34,7 @@ function Updates:GetCachedLatestVersion()
 end
 
 function Updates:GetVersionNumber(version)
-	return version.major * 10000 + version.minor * 100 + version.patch * 2
+	return version.major * 10000 + version.minor * 100 + version.patch
 end
 
 function Updates:IsUpdateAvailable()
