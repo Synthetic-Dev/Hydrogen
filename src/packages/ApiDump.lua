@@ -118,6 +118,7 @@ local ignoreTags = {
 	ReadOnly = true;
 	Deprecated = true;
 	Hidden = true;
+	NotScriptable = true;
 }
 function ApiDump:GetProperties(className)
 	local members = self:GetMembers(className)
