@@ -1,26 +1,23 @@
 local Selection = game:GetService("Selection")
 local RunService = game:GetService("RunService")
-local StudioService = game:GetService("StudioService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
-
-local Studio = settings().Studio
-local Theme = Studio.Theme
-local isDarkMode = Theme.Name == "Dark"
 
 local root = script.Parent
 
 local packages = root.packages
 local ApiDump = require(packages.ApiDump)
 local Updates = require(packages.Updates)
+local SettingsManager = require(packages.SettingsManager)
 local ScriptConstructor = require(packages.ScriptConstructor)
+
+local PluginBar = require(packages.PluginBar)
 
 local IsGuiObject = require(packages.IsGuiObject)
 local IsLocal = root.IsLocal.Value
 
 local utils = root.utils
 local Janitor = require(utils.Janitor)
-local TableUtil = require(utils.TableUtil)
 
 local Fusion
 
@@ -73,61 +70,29 @@ local fusionJanitor = Janitor.new()
 
 janitor:Add(fusionJanitor)
 
-local NIL = { }
-local defaultPluginSettings = {
-	fusionInstance = NIL;
-	output = NIL;
-	formatting = {
-		tableSeparator = ";";
-		extraSeparator = false;
-		sortServices = true;
-	};
-	log = {
-		onSettingsChanged = false;
-		onConversionStart = true;
-	};
-}
+local pluginSettings = SettingsManager.new(
+	"Hydrogen_Settings" .. (IsLocal and "_Local" or ""),
+	game:GetService("AnalyticsService"),
+	{
+		fusionInstance = SettingsManager.Null;
+		output = SettingsManager.Null;
+		formatting = {
+			tableSeparator = ";";
+			extraSeparator = false;
+			sortServices = true;
+		};
+		log = {
+			onSettingsChanged = false;
+			onConversionStart = true;
+		};
+	},
+	{
+		fusionInstance = "Add reference to Fusion instance here, if not provided the plugin will try to find the Fusion instance";
+		output = "In the future you will select where components are placed via UI, however, the folder reference goes here for now";
+	}
+)
 
-local function GetDefaultPluginSettings()
-	local _settings = TableUtil.Copy(defaultPluginSettings)
-	_settings.fusionInstance = NIL
-	_settings.output = NIL
-
-	return _settings
-end
-
-local pluginSettings = GetDefaultPluginSettings()
-
-local settingsHolder = game:GetService("AnalyticsService")
-local settingsName = "Hydrogen_Settings" .. (IsLocal and "_Local" or "")
-
-local settingsNeedsSource = true
-
-local settingsModule = settingsHolder:FindFirstChild(settingsName)
-if not settingsModule or settingsModule.Source == "" then
-	settingsModule = Instance.new("ModuleScript")
-	settingsModule.Name = settingsName
-	settingsModule.Parent = settingsHolder
-else
-	settingsNeedsSource = false
-	local success, storedSettings = pcall(require, settingsModule:Clone())
-
-	if success then
-		local function addMissing(default, stored)
-			for k, v in pairs(default) do
-				if stored[k] == nil then
-					settingsNeedsSource = true
-					stored[k] = v
-				elseif typeof(stored[k]) .. typeof(v) == "tabletable" then
-					addMissing(v, stored[k])
-				end
-			end
-		end
-
-		addMissing(pluginSettings, storedSettings)
-		pluginSettings = storedSettings
-	end
-end
+janitor:Add(pluginSettings)
 
 local function IsValidFusion(t)
 	local isValid = false
@@ -156,9 +121,9 @@ local function IsValidFusion(t)
 	return isValid
 end
 
-local function getFusion()
+local function getFusion(settings)
 	local isValid = false
-	local fusion = pluginSettings.fusionInstance
+	local fusion = settings.fusionInstance
 
 	if fusion then
 		if typeof(fusion) == "Instance" and fusion:IsA("ModuleScript") then
@@ -232,160 +197,13 @@ local function getFusion()
 	end
 end
 
-local function onSettingsChanged(newSettings)
-	if not newSettings then
-		newSettings = require(settingsModule:Clone())
-	end
-	pluginSettings = newSettings
-
-	getFusion()
-end
-
-local settingsSourceBeingEditted = false
-local function connectOnSettingsChanged()
-	local connection
-	connection = settingsModule
-		:GetPropertyChangedSignal("Source")
-		:Connect(function()
-			if settingsSourceBeingEditted then
-				return
-			end
-
-			if StudioService.ActiveScript == settingsModule then
-				repeat
-					StudioService
-						:GetPropertyChangedSignal("ActiveScript")
-						:Wait()
-					local activeScript = StudioService.ActiveScript
-				until activeScript ~= settingsModule
-			end
-
-			-- print("Settings editted")
-
-			local oldSettings = TableUtil.Copy(pluginSettings)
-			local newSettings = require(settingsModule:Clone())
-
-			-- print(oldSettings, newSettings)
-
-			local changed = false
-			local function checkHasChanged(old, new)
-				for k, v in pairs(old) do
-					local nv = new[k]
-
-					if typeof(nv) ~= typeof(v) then
-						changed = true
-						return
-					end
-
-					if typeof(v) == "table" then
-						checkHasChanged(v, nv)
-					elseif nv ~= v then
-						changed = true
-					end
-
-					if changed then
-						return
-					end
-				end
-
-				for k, v in pairs(new) do
-					local ov = old[k]
-
-					if typeof(ov) ~= typeof(v) then
-						changed = true
-						return
-					end
-
-					if typeof(v) == "table" then
-						checkHasChanged(ov, v)
-					elseif ov ~= v then
-						changed = true
-					end
-
-					if changed then
-						return
-					end
-				end
-			end
-			checkHasChanged(oldSettings, newSettings)
-
-			if changed then
-				if newSettings.log.onSettingsChanged then
-					log(print, "Settings have changed")
-				end
-
-				onSettingsChanged(newSettings)
-			end
-		end)
-
-	janitor:Add(connection)
-	return connection
-end
-
-local function writeSettingsSource()
-	settingsSourceBeingEditted = true
-
-	local constructor = ScriptConstructor.Constructor.new(settingsModule)
-	constructor:Write(
-		"-- Save and close this script in order to apply settings"
-	)
-	constructor:Write("")
-	constructor:Write("return {")
-
-	local function writeKVs(t, indent)
-		for key, value in pairs(t) do
-			if typeof(value) == "table" and value ~= NIL then
-				constructor:Write(string.format("%s = {", key), indent)
-				writeKVs(value, indent + 1)
-				constructor:Write("};", indent)
-			else
-				value = value == NIL and "nil"
-					or ScriptConstructor:ValueToString(value)
-				constructor:Write(
-					string.format("%s = %s;", key, value)
-						.. (
-							(
-								key == "fusionInstance"
-								and " -- Add reference to Fusion instance here, if not provided the plugin will try to find the Fusion instance"
-							)
-							or (key == "output" and " -- In the future you will select where components are placed via UI, however, the folder reference goes here for now")
-							or ""
-						),
-					indent
-				)
-			end
-		end
+pluginSettings:OnSettingsChanged(function(newSettings, oldSettings)
+	if newSettings.log.onSettingsChanged then
+		log(print, "Settings have changed")
 	end
 
-	writeKVs(pluginSettings, 1)
-
-	constructor:Write("}")
-
-	settingsModule.Source = constructor:Build()
-
-	settingsSourceBeingEditted = false
-end
-
-local function assureSettings()
-	if settingsModule.Parent == nil then
-		pluginSettings = GetDefaultPluginSettings()
-		settingsModule = nil
-	end
-
-	if not settingsModule then
-		settingsModule = Instance.new("ModuleScript")
-		settingsModule.Name = settingsName
-		settingsModule.Parent = settingsHolder
-
-		connectOnSettingsChanged()
-		writeSettingsSource()
-	end
-end
-
-if settingsNeedsSource then
-	writeSettingsSource()
-end
-connectOnSettingsChanged()
+	getFusion(newSettings)
+end)
 
 --[[
 ----------------------------------------------------------------------------------------------------------------------------------------
@@ -401,59 +219,6 @@ connectOnSettingsChanged()
 \        \        \        \        \        \        \        \        \        \        \        \        \        \        \        \
 -----------------------------------------------------------------------------------------------------------------------------------------
 ]]
-
-local toolbar = plugin:CreateToolbar(
-	"Hydrogen" .. (IsLocal and " (LOCAL)" or "")
-)
-janitor:Add(toolbar)
-
-local themeChangeFuncs = { }
-local function OnThemeChange(func)
-	table.insert(themeChangeFuncs, func)
-end
-
-janitor:Add(Studio.ThemeChanged:Connect(function()
-	Theme = Studio.Theme
-	isDarkMode = Theme.Name == "Dark"
-
-	for _, func in pairs(themeChangeFuncs) do
-		func()
-	end
-end))
-
-local convertToRaw = toolbar:CreateButton(
-	"Convert to Raw",
-	"Convert the ui into a script containing the Fusion tree.",
-	isDarkMode and "rbxassetid://7701675844" or "rbxassetid://7701675842"
-)
-OnThemeChange(function()
-	convertToRaw.Icon = isDarkMode and "rbxassetid://7701675844"
-		or "rbxassetid://7701675842"
-end)
-
-local convertToComponent = toolbar:CreateButton(
-	"Convert to Component",
-	"Convert the ui into a modulescript that returns a Fusion component.",
-	isDarkMode and "rbxassetid://7701675841" or "rbxassetid://7701675862"
-)
-OnThemeChange(function()
-	convertToComponent.Icon = isDarkMode and "rbxassetid://7701675841"
-		or "rbxassetid://7701675862"
-end)
-
-local settingsButton = toolbar:CreateButton(
-	"Settings",
-	"Open settings.",
-	isDarkMode and "rbxassetid://7704843199" or "rbxassetid://7704843209"
-)
-OnThemeChange(function()
-	settingsButton.Icon = isDarkMode and "rbxassetid://7704843199"
-		or "rbxassetid://7704843209"
-end)
-
-convertToRaw.ClickableWhenViewportHidden = true
-convertToComponent.ClickableWhenViewportHidden = true
-settingsButton.ClickableWhenViewportHidden = true
 
 local function Convert(mode)
 	if not RunService:IsEdit() then
@@ -481,7 +246,7 @@ local function Convert(mode)
 		)
 	end
 
-	local output = pluginSettings.output
+	local output = pluginSettings:GetSetting("output")
 	if not output then
 		local folder = ReplicatedStorage:FindFirstChild("Hydrogen/out")
 		if not folder then
@@ -494,7 +259,7 @@ local function Convert(mode)
 
 	ChangeHistoryService:SetEnabled(true)
 
-	if pluginSettings.log.onConversionStart then
+	if pluginSettings:GetSetting("log").onConversionStart then
 		log(print, "Converting '" .. guiObject.Name .. "' to Fusion")
 	end
 
@@ -511,7 +276,7 @@ local function Convert(mode)
 			guiObject,
 			Fusion,
 			mode,
-			pluginSettings.formatting
+			pluginSettings:GetSetting("formatting")
 		)
 	end)
 
@@ -536,23 +301,56 @@ local function Convert(mode)
 	Selection:Set({ scriptInstance; })
 end
 
+local toolbar = PluginBar.new(
+	plugin,
+	"Hydrogen" .. (IsLocal and " (LOCAL)" or "")
+)
+janitor:Add(toolbar)
+
+local convertToRaw = toolbar:AddButton(
+	"Convert to Raw",
+	"Convert the ui into a script containing the Fusion tree.",
+	{
+		dark = "rbxassetid://7701675844";
+		light = "rbxassetid://7701675842";
+	},
+	true
+)
+
+local convertToComponent = toolbar:AddButton(
+	"Convert to Component",
+	"Convert the ui into a modulescript that returns a Fusion component.",
+	{
+		dark = "rbxassetid://7701675841";
+		light = "rbxassetid://7701675862";
+	},
+	true
+)
+
+local settingsButton = toolbar:AddButton("Settings", "Open settings.", {
+	dark = "rbxassetid://7704843199";
+	light = "rbxassetid://7704843209";
+}, true)
+
 convertToRaw.Click:Connect(function()
-	assureSettings()
+	pluginSettings:Assure()
+
 	Convert("r")
 	task.delay(0.1, convertToRaw.SetActive, convertToRaw, false)
 end)
 
 convertToComponent.Click:Connect(function()
-	assureSettings()
+	pluginSettings:Assure()
+
 	Convert("c")
 	task.delay(0.1, convertToComponent.SetActive, convertToComponent, false)
 end)
 
 settingsButton.Click:Connect(function()
-	assureSettings()
+	pluginSettings:Assure()
 
-	if settingsModule then
-		plugin:OpenScript(settingsModule)
+	if pluginSettings.instance then
+		plugin:OpenScript(pluginSettings.instance)
 	end
 end)
 
@@ -571,7 +369,7 @@ end)
 -----------------------------------------------------------------------------------------------------------------------------------------
 ]]
 
-onSettingsChanged()
+getFusion(pluginSettings:GetSettings())
 
 plugin.Unloading:Connect(function()
 	log(warn, "Unloading...")
