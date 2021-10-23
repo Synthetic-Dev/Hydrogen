@@ -32,14 +32,19 @@ function ObjectReferences:DoesShareServiceWith(object)
 end
 
 function ObjectReferences:GetPath(start, target, varName)
+	if target == game then
+		return "game"
+	end
+
 	if start == game and ApiDump:IsService(target.ClassName) then
 		return string.format("game:GetService(%q)", target.ClassName)
 	end
 
-	local startPath = "game." .. start:GetFullName()
+	local startPath = start == game and "" or "game." .. start:GetFullName()
 	local targetPath = "game." .. target:GetFullName()
 
-	local path = self.instance == start and "script" or (varName or start.Name)
+	local path = self.instance == start and "script"
+		or (varName or (start == game and "" or start.Name))
 
 	if target:IsDescendantOf(start) then
 		return path .. string.sub(targetPath, #startPath + 1)
