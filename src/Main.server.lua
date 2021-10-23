@@ -24,6 +24,11 @@ local Fusion
 local function log(func, ...)
 	local args = { ...; }
 	local str = table.remove(args, 1)
+
+	if func == error then
+		args[1] = args[1] and args[1] + 1 or 2
+	end
+
 	func(
 		"[Hydrogen" .. (IsLocal and " Local" or "") .. "] " .. tostring(str),
 		table.unpack(args)
@@ -35,9 +40,16 @@ if isOutdated then
 	warn(
 		"Hydrogen is outdated!\nGet the latest version by going to Plugins > Manage Plugins > Click \"Update\" button under \"Hydrogen\"\nOR\nGet the latest release from the github page (https://github.com/Synthetic-Dev/Hydrogen/releases)!"
 	)
+elseif IsLocal then
+	local current = Updates:GetVersion()
+	local github = Updates:GetCachedLatestVersion()
+
+	if Updates:GetVersionNumber(current) > Updates:GetVersionNumber(github) then
+		log(print, "Plugin is running future version.")
+	end
 end
 
-if RunService:IsServer() then
+do
 	local success, result, err = ApiDump:FetchApiDump(plugin)
 	if not success then
 		log(
@@ -121,7 +133,9 @@ local function IsValidFusion(t)
 	return isValid
 end
 
-local function getFusion(settings)
+local function getFusion()
+	local settings = pluginSettings:GetSettings()
+
 	local isValid = false
 	local fusion = settings.fusionInstance
 
@@ -129,15 +143,17 @@ local function getFusion(settings)
 		if typeof(fusion) == "Instance" and fusion:IsA("ModuleScript") then
 			local fusionTable
 			local success, err = pcall(function()
-				fusionTable = require(Fusion)
+				fusionTable = require(fusion)
 			end)
 
 			if not success then
-				log(
-					warn,
+				task.spawn(
+					log,
+					error,
 					"An error occured when trying to require provided Fusion instance!\nStack: "
 						.. err
 				)
+				return
 			end
 
 			isValid = IsValidFusion(fusionTable)
@@ -145,6 +161,13 @@ local function getFusion(settings)
 
 		if not isValid then
 			log(warn, "Provided Fusion instance is not valid!")
+		else
+			log(
+				print,
+				"Provided Fusion instance '"
+					.. fusion:GetFullName()
+					.. "' is valid."
+			)
 		end
 	else
 		local placesToFindFusion = {
@@ -176,7 +199,7 @@ local function getFusion(settings)
 			)
 		elseif Fusion ~= fusion then
 			log(
-				warn,
+				print,
 				"Found valid Fusion instance '" .. fusion:GetFullName() .. "'"
 			)
 		end
@@ -197,12 +220,12 @@ local function getFusion(settings)
 	end
 end
 
-pluginSettings:OnSettingsChanged(function(newSettings, oldSettings)
+pluginSettings:OnSettingsChanged(function(newSettings, _oldSettings)
 	if newSettings.log.onSettingsChanged then
 		log(print, "Settings have changed")
 	end
 
-	getFusion(newSettings)
+	getFusion()
 end)
 
 --[[
@@ -220,6 +243,31 @@ end)
 -----------------------------------------------------------------------------------------------------------------------------------------
 ]]
 
+local function FilteredSelection()
+	local selected = Selection:Get()
+	local filtered = { }
+	local invalid = { }
+
+	for _, obj in pairs(selected) do
+		if not IsGuiObject(obj) then
+			table.insert(invalid, obj.Name)
+		else
+			table.insert(filtered, obj)
+		end
+	end
+
+	if #invalid > 0 then
+		log(
+			warn,
+			"Selected object(s) '"
+				.. table.concat(invalid, "', '")
+				.. "' are not 2D GuiObject(s)"
+		)
+	end
+
+	return filtered
+end
+
 local function Convert(mode)
 	if not RunService:IsEdit() then
 		return log(warn, "UI cannot be converted while not in edit mode!")
@@ -233,17 +281,10 @@ local function Convert(mode)
 		end
 	end
 
-	local guiObject = Selection:Get()[1]
+	local guiObjects = FilteredSelection()
 
-	if not guiObject then
-		return log(warn, "No object selected")
-	end
-
-	if not IsGuiObject(guiObject) then
-		return log(
-			warn,
-			"Selected object '" .. guiObject.Name .. "' is not a 2D GuiObject"
-		)
+	if #guiObjects == 0 then
+		return log(print, "No valid objects selected")
 	end
 
 	local output = pluginSettings:GetSetting("output")
@@ -258,47 +299,55 @@ local function Convert(mode)
 	end
 
 	ChangeHistoryService:SetEnabled(true)
-
-	if pluginSettings:GetSetting("log").onConversionStart then
-		log(print, "Converting '" .. guiObject.Name .. "' to Fusion")
-	end
-
 	ChangeHistoryService:SetWaypoint("Converting UI to Fusion")
 
-	local scriptInstance = mode == "r" and Instance.new("LocalScript")
-		or Instance.new("ModuleScript")
-	scriptInstance.Name = guiObject.Name
-	scriptInstance.Parent = output
+	local scriptInstances = { }
 
-	local success, result = pcall(function()
-		return ScriptConstructor:ConstructSource(
-			scriptInstance,
-			guiObject,
-			Fusion,
-			mode,
-			pluginSettings:GetSetting("formatting")
-		)
-	end)
+	for _, guiObject in pairs(guiObjects) do
+		if pluginSettings:GetSetting("log").onConversionStart then
+			log(print, "Converting '" .. guiObject.Name .. "' to Fusion")
+		end
 
-	if not success then
-		log(
-			error,
-			"An issue occured while trying to convert '"
-				.. guiObject.Name
-				.. "'\nStack: "
-				.. result
-		)
+		local scriptInstance = mode == "r" and Instance.new("LocalScript")
+			or Instance.new("ModuleScript")
+		scriptInstance.Name = guiObject.Name
+		scriptInstance.Parent = output
+
+		local success, result = pcall(function()
+			return ScriptConstructor:ConstructSource(
+				scriptInstance,
+				guiObject,
+				Fusion,
+				mode,
+				pluginSettings:GetSetting("formatting")
+			)
+		end)
+
+		if not success then
+			scriptInstance:Destroy()
+			task.spawn(
+				log,
+				error,
+				"An issue occured while trying to convert '"
+					.. guiObject.Name
+					.. "'\nStack: "
+					.. result
+			)
+		end
+
+		scriptInstance.Source = result
+		table.insert(scriptInstances, scriptInstance)
+
+		log(print, "Converted '" .. guiObject.Name .. "' to Fusion")
 	end
 
-	scriptInstance.Source = result
+	if #scriptInstances > 0 then
+		ChangeHistoryService:SetWaypoint("Converted UI to Fusion")
 
-	log(
-		print,
-		"Converted '" .. guiObject.Name .. "' to Fusion, showing in explorer..."
-	)
-	ChangeHistoryService:SetWaypoint("Converted UI to Fusion")
+		log(print, "Showing converted UI(s) in explorer...")
 
-	Selection:Set({ scriptInstance; })
+		Selection:Set(scriptInstances)
+	end
 end
 
 local toolbar = PluginBar.new(
@@ -369,9 +418,9 @@ end)
 -----------------------------------------------------------------------------------------------------------------------------------------
 ]]
 
-getFusion(pluginSettings:GetSettings())
+getFusion()
 
 plugin.Unloading:Connect(function()
-	log(warn, "Unloading...")
+	log(print, "Unloading...")
 	janitor:Destroy()
 end)
