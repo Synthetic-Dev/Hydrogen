@@ -1,5 +1,6 @@
 {
   "name": "Hydrogen",
+  "servePort": 34873,
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
