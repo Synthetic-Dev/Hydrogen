@@ -170,7 +170,7 @@ function ScriptConstructor:ConstructSource(
 				writeLinesForObject(child, indent, index == #validChildren)
 			end
 
-			if isComponent then
+			if isComponent and isTopOfTree then
 				constructor:Write("", indent)
 				constructor:Write("props[Children]", indent)
 			end
