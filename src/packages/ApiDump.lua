@@ -45,11 +45,19 @@ function ApiDump:FetchApiDump(plugin)
 	return true
 end
 
+function ApiDump:Assert()
+	if not self.Cached then
+		error("ApiDump has not been fetched / No ApiDump is cached!", 3)
+	end
+end
+
 local classEntryCache = { }
 function ApiDump:GetClassEntry(className)
 	if classEntryCache[className] then
 		return classEntryCache[className]
 	end
+
+	self:Assert()
 
 	for _, entry in pairs(self.Cached.Classes) do
 		if entry.Name == className then
@@ -64,6 +72,8 @@ function ApiDump:GetSubclasses(className)
 	if subclassesCache[className] then
 		return subclassesCache[className]
 	end
+
+	self:Assert()
 
 	local subclasses = { }
 	for _, entry in pairs(self.Cached.Classes) do
@@ -81,8 +91,10 @@ function ApiDump:GetMembers(className)
 	if membersCache[className] then
 		return membersCache[className]
 	end
-	local members = { }
 
+	self:Assert()
+
+	local members = { }
 	local entries = { }
 
 	do
@@ -109,9 +121,19 @@ function ApiDump:GetMembers(className)
 	return members
 end
 
+local serviceCache = { }
 function ApiDump:IsService(className)
+	if serviceCache[className] ~= nil then
+		return serviceCache[className]
+	end
+
+	self:Assert()
+
 	local entry = self:GetClassEntry(className)
-	return table.find(entry.Tags or { }, "Service")
+	local isService = table.find(entry.Tags or { }, "Service") ~= nil
+
+	serviceCache[className] = isService
+	return isService
 end
 
 local ignoreTags = {
@@ -121,6 +143,8 @@ local ignoreTags = {
 	NotScriptable = true;
 }
 function ApiDump:GetProperties(className)
+	self:Assert()
+
 	local members = self:GetMembers(className)
 
 	local props = { }
