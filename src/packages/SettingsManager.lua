@@ -182,7 +182,8 @@ function SettingsManager:_connectToSource()
 			local oldSettings = self:GetSettings()
 			local success, newSettings = Require(self.instance)
 			if not success then
-				error(newSettings)
+				task.spawn(error, newSettings)
+				return
 			end
 
 			local changed = false
