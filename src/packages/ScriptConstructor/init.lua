@@ -51,9 +51,15 @@ function ScriptConstructor:ConstructSource(
 
 	constructor:SetCurrentSource("Body")
 
+	local componentName = string.gsub(
+		string.gsub(guiObject.Name, "[%c%z]+", ""),
+		"%s+",
+		"_"
+	)
+
 	if isComponent then
 		constructor:Write(
-			string.format("local function %s(props)", guiObject.Name)
+			string.format("local function %s(props)", componentName)
 		)
 	end
 
@@ -215,10 +221,10 @@ function ScriptConstructor:ConstructSource(
 	if isComponent then
 		constructor:Append("return ", startLine, "s")
 		constructor:Write("end")
-		constructor:Write(string.format("\nreturn %s", guiObject.Name))
+		constructor:Write(string.format("\nreturn %s", componentName))
 	else
 		constructor:Append(
-			string.format("local %s = ", guiObject.Name),
+			string.format("local %s = ", componentName),
 			startLine,
 			"s"
 		)

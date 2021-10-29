@@ -3,6 +3,10 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+if not RunService:IsEdit() then
+	return
+end
+
 local root = script.Parent
 
 local packages = root.packages
@@ -269,10 +273,6 @@ local function FilteredSelection()
 end
 
 local function Convert(mode)
-	if not RunService:IsEdit() then
-		return log(warn, "UI cannot be converted while not in edit mode!")
-	end
-
 	if not Fusion then
 		getFusion()
 
