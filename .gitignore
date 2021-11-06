@@ -1,9 +1,12 @@
 # Project place file
 *.rbxlx
 
-# Roblox Studio lock files
-/*.rbxlx.lock
-/*.rbxl.lock
+# Ignore lock files
+*.lock
 
-# Roblox model file
+# Roblox model files
 *.rbxmx
+*.rbxm
+
+# Ignore Packages folder
+Packages
